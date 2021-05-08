@@ -24,7 +24,7 @@ def div_by_zero():
 
 def fib(n):
     if n <= 1:
-        time.sleep(1)
+        time.sleep(2)
         return 1
     else:
         return fib(n - 2) + fib(n - 1)

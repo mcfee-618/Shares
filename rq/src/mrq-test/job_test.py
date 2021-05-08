@@ -11,7 +11,7 @@ def create(num):
     for i in range(num):
         connection=redis.Redis(host="127.0.0.1",port=6379,db=0,decode_responses=True)
         queue = Queue(connection=connection)
-        queue.enqueue_job(fib,0)
+        queue.enqueue_job(fib,0,timeout=1)
 
 def perform():
     worker = Worker(connection=redis.Redis(host="127.0.0.1",port=6379,db=0,decode_responses=True))

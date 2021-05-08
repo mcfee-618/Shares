@@ -2,6 +2,8 @@ import time
 import json
 import uuid
 import importlib
+import signal
+from .exception import *
 
 class JobStatus:
     
@@ -9,6 +11,7 @@ class JobStatus:
     running = "running"
     failed = "failed"
     finished = "finished"
+    timeout = "timeout"
 
 class Job:
     
@@ -20,17 +23,22 @@ class Job:
         self._args = None
         self._kwargs = None
         self._status = None
+        self._timeout = 60
         self.id = None
     
     @classmethod
     def create(cls,func,*args,**kwargs):
         connection = kwargs.pop('connection', None)
+        timeout = kwargs.pop('timeout',None)
+        print(timeout)
         job = Job(connection=connection)
         job._func_name = '%s.%s' % (func.__module__, func.__name__)
         job._args = args
         job._kwargs = kwargs
         job._status = JobStatus.pending
         job.id = uuid.uuid4()
+        if timeout:
+            job._timeout = timeout 
         return job
     
     @classmethod
@@ -41,6 +49,7 @@ class Job:
         job = Job(connection)
         job.id = id
         job.loads(job_info['func'])
+        job._timeout = int(job_info['timeout'])
         return job
         
     @property
@@ -63,10 +72,13 @@ class Job:
         return getattr(module, func_name)
         
     def perform_job(self):
+        self.register_signal_handlers()
         self.status = JobStatus.running
         result = None
         try:
             result = self.func(*self._args,**self._kwargs)
+        except TimeoutException:
+            self.status = JobStatus.timeout
         except Exception as e:
             self.status = JobStatus.failed
         else:
@@ -91,9 +103,15 @@ class Job:
         obj['created_at'] = int(time.time())
         obj['func'] = self.dumps()
         obj['status'] = self._status
+        obj['timeout'] = self._timeout
         pipe = self.connection.pipeline(transaction=False)
         pipe.hmset(f'{self.redis_job_prefix}{self.id}',obj)
         pipe.expire(f'{self.redis_job_prefix}{self.id}',3600)
         pipe.execute()
         
-    
+    def register_signal_handlers(self):
+        print(self._timeout)
+        def handle_alarm_signal():    
+            raise TimeoutException()
+        signal.signal(signal.SIGALRM,handle_alarm_signal)
+        signal.alarm(self._timeout)
