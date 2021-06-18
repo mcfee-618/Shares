@@ -13,12 +13,8 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
 '''
     # Handle a GET request.
     def do_GET(self):
-        self.send_response(200)
         page = self.create_page()
-        self.send_header("Content-Type", "text/html")
-        self.send_header("Content-Length", str(len(page)))
-        self.end_headers()
-        self.wfile.write(page.encode("utf-8"))
+        self.send_content(page)
         
     def create_page(self):
         data = {
@@ -26,6 +22,13 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
             "password":"123456"
         }
         return self.template.format(**data)
+    
+    def send_content(self, page):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html")
+        self.send_header("Content-Length", str(len(page)))
+        self.end_headers()
+        self.wfile.write(page.encode("utf-8"))
         
 #----------------------------------------------------------------------
 if __name__ == '__main__':
